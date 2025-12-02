@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recycling Visit Logger</title>
+  <meta name="theme-color" content="#22c55e" />
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0a0a0a">
+<!-- iOS support -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <!-- Supabase JS -->
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+
+  <style>
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #1f2933, #0b1016 55%, #050608);
+      color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .brand-badge {
+      letter-spacing: 0.12em;
+      font-size: 0.75rem;
+    }
+
+    .card {
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: radial-gradient(circle at top left, #111827, #020617);
+      color: #e5e7eb;
+    }
+
+    .card-header {
+      border-radius: 18px 18px 0 0 !important;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #ecfdf3;
+    }
+
+    .form-control, .form-control:focus {
+      background-color: #020617;
+      border-color: rgba(148, 163, 184, 0.6);
+      color: #e5e7eb;
+    }
+
+    .form-control::placeholder {
+      color: #6b7280;
+      font-size: 0.9rem;
+    }
+
+    .table {
+      color: #e5e7eb;
+      font-size: 0.875rem;
+    }
+
+    .table thead {
+      background-color: rgba(15, 23, 42, 0.9);
+    }
+
+    .table tbody tr:nth-child(odd) {
+      background-color: rgba(15, 23, 42, 0.6);
+    }
+
+    .table tbody tr:nth-child(even) {
+      background-color: rgba(15, 23, 42, 0.3);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: none;
+    }
+
+    .btn-success:hover {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+
+    .btn-outline-light {
+      border-color: rgba(148, 163, 184, 0.6);
+      color: #e5e7eb;
+    }
+
+    .btn-outline-light:hover {
+      background-color: rgba(148, 163, 184, 0.1);
+      border-color: #e5e7eb;
+      color: #f9fafb;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    small {
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="text-center mb-4">
+      <span class="badge bg-dark border border-secondary brand-badge mb-2">
+        ♻ RECYCLING TRACKER
+      </span>
+      <h1 class="h3 fw-semibold text-light mb-1">African Green Recycling</h1>
+      <p class="mb-0">
+        Track every recycling pickup with a simple, secure log.
+      </p>
+    </div>
+
+    <!-- AUTH CARD -->
+    <div id="auth" class="card shadow-lg mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Sign In</span>
+        <small class="opacity-75">Private access only</small>
+      </div>
+      <div class="card-body">
+        <form onsubmit="event.preventDefault(); signIn();">
+          <div class="mb-3 text-start">
+            <label for="authEmail" class="form-label">Email</label>
+            <input
+              type="email"
+              id="authEmail"
+              class="form-control"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div class="mb-3 text-start">
+            <label for="authPassword" class="form-label">Password</label>
+            <input
+              type="password"
+              id="authPassword"
+              class="form-control"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button type="submit" class="btn btn-success px-4">
+              Log In
+            </button>
+            <button type="button" class="btn btn-outline-light px-3" onclick="signUp()">
+              Sign Up (first time)
+            </button>
+            <small class="ms-auto">
+              <!-- optional helper text -->
+            </small>
+          </div>
+        </form>
+
+        <div id="authMessage" class="mt-3 small"></div>
+      </div>
+    </div>
+
+    <!-- APP CARD -->
+    <div id="app" class="card shadow-lg hidden">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <span class="fw-semibold">Recycling Visits</span>
+          <div class="small opacity-75">
+            Logged in as: <span id="userEmail" class="fw-semibold"></span>
+          </div>
+        </div>
+        <button class="btn btn-outline-light btn-sm" onclick="signOut()">
+          Log Out
+        </button>
+      </div>
+
+      <div class="card-body">
+        <div class="row g-4">
+          <!-- Log form -->
+          <div class="col-md-5">
+            <h5 class="mb-3">Log a new visit</h5>
+            <div class="mb-3">
+              <label for="collector" class="form-label">Collector name (optional)</label>
+              <input
+                type="text"
+                id="collector"
+                class="form-control"
+                placeholder="e.g. GreenCycle, John, etc."
+              />
+            </div>
+            <div class="mb-3">
+              <label for="notes" class="form-label">Notes (optional)</label>
+              <input
+                type="text"
+                id="notes"
+                class="form-control"
+                placeholder="e.g. 3 bags, mostly plastic"
+              />
+            </div>
+            <button class="btn btn-success w-100" onclick="logVisit()">
+              Log Visit
+            </button>
+            <div id="message" class="mt-2 small"></div>
+          </div>
+
+          <!-- History table + stats -->
+          <div class="col-md-7">
+            <!-- Stats row -->
+            <div class="mb-3">
+              <div class="row g-2">
+                <div class="col-6">
+                  <div class="p-2 rounded-3 border border-secondary-subtle bg-transparent">
+                    <div class="small text-muted">Total visits</div>
+                    <div class="fw-semibold fs-5" id="totalVisits">0</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="p-2 rounded-3 border border-secondary-subtle bg-transparent">
+                    <div class="small text-muted">
+                      Visits this month
+                    </div>
+                    <div class="fw-semibold fs-5" id="totalVisitsMonth">0</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Title + filter + table -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0">Visit history</h5>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Filter visits">
+                <button
+                  type="button"
+                  class="btn btn-outline-light active"
+                  id="filterAllBtn"
+                  onclick="setFilter('all')"
+                >
+                  All time
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-light"
+                  id="filterMonthBtn"
+                  onclick="setFilter('month')"
+                >
+                  This month
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive" style="max-height: 330px; overflow-y: auto;">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style="width: 38%;">Date &amp; time</th>
+                    <th style="width: 22%;">Collector</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="visitTable">
+                  <!-- Visits go here -->
+                </tbody>
+              </table>
+            </div>
+          </div> <!-- /col-md-7 -->
+        </div> <!-- /row -->
+      </div> <!-- /card-body -->
+    </div> <!-- /app card -->
+  </div> <!-- /app-container -->
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ==== Replace with your own Supabase Project Info (anon key is okay client-side, but restrict rules in Supabase) ====
+    const SUPABASE_URL = "https://aqzspzzoupsbnmucxzhf.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxenNwenpvdXBzYm5tdWN4emhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1Mzc5NjgsImV4cCI6MjA4MDExMzk2OH0.25ouprirgV35QzapdPb51UjckdJtwdQZsDj010DYDQE";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentFilter = "all";   // 'all' or 'month'
+    let cachedVisits = [];
+
+    const authDiv = document.getElementById("auth");
+    const appDiv = document.getElementById("app");
+    const authMessage = document.getElementById("authMessage");
+    const userEmailSpan = document.getElementById("userEmail");
+
+    // --- AUTH FUNCTIONS ---
+
+    async function signUp() {
+      const email = document.getElementById("authEmail").value;
+      const password = document.getElementById("authPassword").value;
+
+      authMessage.innerText = "";
+
+      const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        authMessage.innerText = "❌ Sign up error: " + error.message;
+      } else {
+        authMessage.innerText =
+          "✅ Sign up successful. If email confirmation is enabled, please check your inbox, then log in.";
+      }
+    }
+
+    async function signIn() {
+      const email = document.getElementById("authEmail").value;
+      const password = document.getElementById("authPassword").value;
+
+      authMessage.innerText = "";
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        authMessage.innerText = "❌ Login error: " + error.message;
+      } else {
+        authMessage.innerText = "✅ Logged in!";
+        updateUIForSession();
+      }
+    }
+
+    async function signOut() {
+      await supabaseClient.auth.signOut();
+      updateUIForSession();
+    }
+
+    // Check session and update UI
+    async function updateUIForSession() {
+      const { data } = await supabaseClient.auth.getSession();
+      const session = data.session;
+
+      if (session && session.user) {
+        // Logged in
+        authDiv.classList.add("hidden");
+        appDiv.classList.remove("hidden");
+        userEmailSpan.innerText = session.user.email || "";
+        loadVisits();
+      } else {
+        // Logged out
+        authDiv.classList.remove("hidden");
+        appDiv.classList.add("hidden");
+        userEmailSpan.innerText = "";
+        document.getElementById("visitTable").innerHTML = "";
+      }
+    }
+
+    // Listen for auth state changes
+    supabaseClient.auth.onAuthStateChange((_event, _session) => {
+      updateUIForSession();
+    });
+
+    // --- VISIT LOGGING FUNCTIONS ---
+
+    async function logVisit() {
+      const collector = document.getElementById("collector").value;
+      const notes = document.getElementById("notes").value;
+      const messageP = document.getElementById("message");
+
+      messageP.innerText = "Saving...";
+
+      const { data, error } = await supabaseClient
+        .from("visits")
+        .insert([{ collector_name: collector || null, notes: notes || null }]);
+
+      if (error) {
+        messageP.innerText = "❌ Error logging visit: " + error.message;
+      } else {
+        messageP.innerText = "✅ Visit logged!";
+        document.getElementById("collector").value = "";
+        document.getElementById("notes").value = "";
+        loadVisits();
+      }
+    }
+
+    async function loadVisits() {
+      const { data, error } = await supabaseClient
+        .from("visits")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.log("Error loading visits:", error);
+        return;
+      }
+
+      // Store all visits in memory
+      cachedVisits = data || [];
+
+      // Render table + stats according to current filter
+      renderVisits();
+    }
+
+    function renderVisits() {
+      const tableBody = document.getElementById("visitTable");
+      if (!tableBody) return;
+
+      tableBody.innerHTML = "";
+
+      const now = new Date();
+      const currentMonth = now.getMonth();    // 0–11
+      const currentYear = now.getFullYear();  // e.g. 2025
+
+      let totalVisits = 0;
+      let totalVisitsThisMonth = 0;
+
+      cachedVisits.forEach((row) => {
+        const created = new Date(row.created_at);
+        const rowMonth = created.getMonth();
+        const rowYear = created.getFullYear();
+        const isThisMonth = rowMonth === currentMonth && rowYear === currentYear;
+
+        // Count stats (always based on all visits)
+        totalVisits++;
+        if (isThisMonth) {
+          totalVisitsThisMonth++;
+        }
+
+        // Apply filter for what we show in the table
+        if (currentFilter === "month" && !isThisMonth) {
+          return; // skip rows not in the current month
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${created.toLocaleString()}</td>
+          <td>${row.collector_name || "-"}</td>
+          <td>${row.notes || "-"}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      // Update stats UI
+      const totalEl = document.getElementById("totalVisits");
+      const monthEl = document.getElementById("totalVisitsMonth");
+
+      if (totalEl) totalEl.innerText = totalVisits;
+      if (monthEl) monthEl.innerText = totalVisitsThisMonth;
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+
+      // Toggle active class on buttons for visual feedback
+      const allBtn = document.getElementById("filterAllBtn");
+      const monthBtn = document.getElementById("filterMonthBtn");
+
+      if (filter === "all") {
+        allBtn.classList.add("active");
+        monthBtn.classList.remove("active");
+      } else {
+        monthBtn.classList.add("active");
+        allBtn.classList.remove("active");
+      }
+
+      // Re-render table + stats with new filter
+      renderVisits();
+    }
+
+    // Initial session check on page load
+    updateUIForSession();
+  </script>
+    <script>
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/service-worker.js');
+      console.log('SW registered', reg);
+    } catch (err) {
+      console.error('SW registration failed', err);
+    }
+  });
+}
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); // prevent auto prompt
+  deferredPrompt = e;
+  // show your custom install button now (e.g. show a visible button on UI)
+  showInstallButton(); 
+});
+
+async function onInstallButtonClicked() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const choice = await deferredPrompt.userChoice;
+  if (choice.outcome === 'accepted') {
+    console.log('User accepted install');
+  } else {
+    console.log('User dismissed install');
+  }
+  deferredPrompt = null;
+  hideInstallButton();
+}
+
+    
+  </script>
+  
+</body>
+</html>
+
+</body>
+</html>
